@@ -11,7 +11,7 @@
 > **Title:** *Development and Evaluation of a Web-Based Inventory Monitoring System with Real-Time Department Status for Senior High School*  
 > **Institution:** Luis Y. Ferrer Jr. Senior High School  
 > **Track & Section:** TVL - ICT-CP 12-KOTLIN  
-> **Developed by:** Group NEXUS
+> **Developed by:** Henrich G. Angeles
 
 ---
 
