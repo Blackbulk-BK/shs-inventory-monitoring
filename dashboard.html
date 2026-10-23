@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workspace | LYFJSHS Inventory & Department Status</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Chart.js CDN (For Phase 5 Analytics) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS SDK CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-grid-pattern min-h-screen flex flex-col text-slate-900">
+
+    <!-- ==========================================
+         TOP NAVIGATION BAR
+         ========================================== -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <!-- Brand -->
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-slate-950 text-white flex items-center justify-center shadow-xs">
+                    <i data-lucide="layers" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-sm tracking-tight text-slate-900">LYFJSHS Inventory</h1>
+                        <span class="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-[10px] font-semibold text-emerald-700">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 status-dot"></span>
+                            Live Sync
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-500">Practical Research 2 • Department Status & Asset Portal</p>
+                </div>
+            </div>
+
+            <!-- Right User Quick Pill & Logout -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <img id="nav-avatar" src="https://ui-avatars.com/api/?name=User&background=0f172a&color=fff" 
+                        alt="Avatar" class="w-7 h-7 rounded-lg object-cover border border-slate-300">
+                    <div class="text-left">
+                        <p id="nav-name" class="text-xs font-semibold text-slate-900 leading-none">Loading...</p>
+                        <p id="nav-role" class="text-[10px] text-slate-500 uppercase tracking-wider mt-0.5 font-mono-code">---</p>
+                    </div>
+                </div>
+
+                <button onclick="logoutUser()" title="Sign Out"
+                    class="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-slate-600 text-xs font-medium transition flex items-center gap-1.5">
+                    <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+                    <span class="hidden sm:inline">Sign Out</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ==========================================
+         MAIN WORKSPACE GRID
+         ========================================== -->
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- ==========================================
+             LEFT SIDEBAR: DIGITAL ID & DEPARTMENT LIST
+             ========================================== -->
+        <aside class="lg:col-span-4 xl:col-span-3 space-y-5 no-print">
+            
+            <!-- 1. LOGGED-IN USER DIGITAL ID CARD -->
+            <div class="bg-slate-950 text-white rounded-2xl p-5 border border-slate-800 shadow-sm">
+                <div class="flex items-center justify-between pb-3 mb-3.5 border-b border-slate-800">
+                    <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Official Digital ID</span>
+                    <span id="profile-role-badge" class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        ROLE
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-3.5">
+                    <img id="profile-avatar" src="https://ui-avatars.com/api/?name=User&background=1e293b&color=fff" 
+                        alt="Formal Picture" class="w-16 h-16 rounded-xl object-cover border border-slate-700 bg-slate-800 shrink-0">
+                    <div class="min-w-0 flex-1">
+                        <h2 id="profile-fullname" class="font-bold text-sm text-white truncate">Loading Profile...</h2>
+                        <p id="profile-sub" class="text-xs text-slate-300 truncate mt-0.5">---</p>
+                        <p id="profile-meta" class="font-mono-code text-[11px] text-slate-400 truncate mt-1">---</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. DEPARTMENTS DIRECTORY -->
+            <div class="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+                <div class="flex items-center justify-between mb-3">
+                    <div>
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800">Departments</h3>
+                        <p class="text-[11px] text-slate-400">Select a workspace to monitor</p>
+                    </div>
+                    <!-- Only visible if logged-in user is a Teacher -->
+                    <button id="btn-open-create-dept" onclick="openCreateDeptModal()"
+                        class="hidden px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition items-center gap-1 shadow-2xs">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                        <span>New</span>
+                    </button>
+                </div>
+
+                <!-- Department Search -->
+                <div class="relative mb-3">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" id="dept-search-input" oninput="filterDepartmentList()" placeholder="Search department..."
+                        class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-slate-900 focus:outline-none">
+                </div>
+
+                <!-- Dynamic Department Cards List -->
+                <div id="department-list-container" class="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+                    <div class="p-6 text-center text-xs text-slate-400">Loading departments...</div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ==========================================
+             RIGHT MAIN AREA: SELECTED DEPARTMENT WORKSPACE
+             ========================================== -->
+        <section class="lg:col-span-8 xl:col-span-9 space-y-5">
+
+            <!-- EMPTY STATE (Shown when no department is selected or none exist) -->
+            <div id="empty-workspace-state" class="bg-white rounded-2xl border border-slate-200/90 p-12 text-center shadow-2xs">
+                <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-700 flex items-center justify-center mx-auto mb-3">
+                    <i data-lucide="building-2" class="w-6 h-6"></i>
+                </div>
+                <h2 class="text-base font-bold text-slate-900">Select or Create a Department</h2>
+                <p class="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                    Choose a department from the left directory to view its live status, coordinators, inventory stocks, and daily/weekly/monthly statistics.
+                </p>
+            </div>
+
+            <!-- ACTIVE DEPARTMENT WORKSPACE -->
+            <div id="active-workspace" class="hidden space-y-5 fade-in">
+
+                <!-- 1. DEPARTMENT HEADER, LIVE STATUS & DUAL COORDINATORS -->
+                <div class="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+                        <div>
+                            <div class="flex items-center gap-2.5 flex-wrap">
+                                <h2 id="active-dept-name" class="text-xl font-bold text-slate-900 tracking-tight">Department Name</h2>
+                                <!-- Live Status Pill -->
+                                <span id="active-dept-status-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                                    <span class="w-2 h-2 rounded-full bg-slate-400"></span>
+                                    <span>Status</span>
+                                </span>
+                                <!-- User Permission Badge for this Department -->
+                                <span id="user-access-level-badge" class="px-2 py-0.5 rounded text-[10px] font-mono-code font-semibold uppercase bg-slate-100 text-slate-600">
+                                    Viewer
+                                </span>
+                            </div>
+                            <p id="active-dept-desc" class="text-xs text-slate-500 mt-1">Department description and room location.</p>
+                        </div>
+
+                        <!-- LIVE STATUS SWITCHER (Visible to Coordinators & Permitted Student Editors) -->
+                        <div id="status-switcher-control" class="hidden no-print">
+                            <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Update Live Status</label>
+                            <select id="status-select-dropdown" onchange="handleDepartmentStatusChange(this.value)"
+                                class="px-3 py-2 text-xs font-semibold border border-slate-300 rounded-xl bg-slate-50 hover:bg-white focus:border-slate-900 focus:outline-none transition cursor-pointer">
+                                <option value="Open">🟢 Open</option>
+                                <option value="In Use">🔵 In Use</option>
+                                <option value="Under Maintenance">🟡 Under Maintenance</option>
+                                <option value="Closed">🔴 Closed</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- COORDINATORS & STUDENT EDITORS BAR -->
+                    <div class="pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                        
+                        <!-- Primary Coordinator Card -->
+                        <div class="flex items-center gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                            <img id="primary-coord-avatar" src="https://ui-avatars.com/api/?name=PC&background=0f172a&color=fff" 
+                                class="w-10 h-10 rounded-lg object-cover border border-slate-300 shrink-0">
+                            <div class="min-w-0 flex-1">
+                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">Coordinator 1</span>
+                                <p id="primary-coord-name" class="text-xs font-bold text-slate-900 truncate">---</p>
+                                <p id="primary-coord-rank" class="text-[11px] text-slate-500 truncate">---</p>
+                            </div>
+                        </div>
+
+                        <!-- Co-Coordinator Card (2nd Coordinator) -->
+                        <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <img id="co-coord-avatar" src="https://ui-avatars.com/api/?name=None&background=e2e8f0&color=64748b" 
+                                    class="w-10 h-10 rounded-lg object-cover border border-slate-300 shrink-0">
+                                <div class="min-w-0">
+                                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">Co-Coordinator</span>
+                                    <p id="co-coord-name" class="text-xs font-bold text-slate-900 truncate">Not Assigned</p>
+                                    <p id="co-coord-rank" class="text-[11px] text-slate-500 truncate">Optional 2nd Teacher</p>
+                                </div>
+                            </div>
+                            <button id="btn-assign-cocoord" onclick="openCoCoordinatorModal()" title="Assign or Change Co-Coordinator"
+                                class="hidden p-2 rounded-lg bg-white border border-slate-200 hover:border-slate-900 text-slate-700 transition shrink-0 no-print">
+                                <i data-lucide="user-Check" class="w-3.5 h-3.5"></i>
+                            </button>
+                        </div>
+
+                        <!-- Authorized Student Editors Summary -->
+                        <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                            <div>
+                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">Student Editors</span>
+                                <p id="student-editors-count" class="text-xs font-bold text-slate-900">0 Authorized</p>
+                                <p class="text-[11px] text-slate-500">Delegated stock/status access</p>
+                            </div>
+                            <button id="btn-manage-editors" onclick="openStudentEditorsModal()"
+                                class="hidden px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-900 text-xs font-medium text-slate-800 transition items-center gap-1.5 shrink-0 no-print">
+                                <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                                <span>Manage</span>
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 2. WORKSPACE SUB-NAVIGATION TABS -->
+                <div class="flex items-center justify-between border-b border-slate-200 no-print">
+                    <div class="flex gap-1">
+                        <button id="subtab-inventory" onclick="switchWorkspaceTab('inventory')"
+                            class="px-4 py-2.5 text-xs font-semibold border-b-2 border-slate-900 text-slate-900 transition flex items-center gap-2">
+                            <i data-lucide="package" class="w-4 h-4"></i>
+                            <span>Inventory Stocks</span>
+                        </button>
+                        <button id="subtab-analytics" onclick="switchWorkspaceTab('analytics')"
+                            class="px-4 py-2.5 text-xs font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-900 transition flex items-center gap-2">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                            <span>Daily, Weekly & Monthly Statistics</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     TAB A: INVENTORY STOCKS (Populated in Phase 4)
+                     ========================================== -->
+                <div id="view-inventory-tab" class="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900">Department Inventory Stocks</h3>
+                            <p class="text-xs text-slate-500">Real-time list of equipment, consumables, and tools</p>
+                        </div>
+                        <div class="flex items-center gap-2 no-print">
+                            <input type="text" id="stock-search-input" oninput="if(window.renderInventoryTable) renderInventoryTable()" placeholder="Filter items..."
+                                class="px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:border-slate-900 focus:outline-none">
+                            
+                            <button id="btn-add-stock" onclick="if(window.openStockModal) openStockModal()"
+                                class="hidden px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition items-center gap-1.5">
+                                <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                                <span>Add Stock</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                                    <th class="py-3 px-3">Item Name</th>
+                                    <th class="py-3 px-3">Category</th>
+                                    <th class="py-3 px-3">Quantity</th>
+                                    <th class="py-3 px-3">Condition / Status</th>
+                                    <th class="py-3 px-3">Last Updated By</th>
+                                    <th class="py-3 px-3 text-right no-print">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="inventory-table-body" class="divide-y divide-slate-100 text-xs">
+                                <tr>
+                                    <td colspan="6" class="py-8 text-center text-slate-400">
+                                        Inventory stock engine will activate in Phase 4.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ==========================================
+                     TAB B: ANALYTICS & TRACKING (Populated in Phase 5)
+                     ========================================== -->
+                <div id="view-analytics-tab" class="hidden bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs space-y-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900">Department Monitoring Statistics</h3>
+                            <p class="text-xs text-slate-500">Track stock movements and status activity per Daily, Weekly, and Monthly intervals</p>
+                        </div>
+                        <div class="flex items-center gap-2 no-print">
+                            <div class="inline-flex p-1 rounded-lg bg-slate-100 border border-slate-200">
+                                <button onclick="if(window.loadAnalytics) loadAnalytics('daily')" id="period-daily" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-white text-slate-900 shadow-2xs">Daily</button>
+                                <button onclick="if(window.loadAnalytics) loadAnalytics('weekly')" id="period-weekly" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-600">Weekly</button>
+                                <button onclick="if(window.loadAnalytics) loadAnalytics('monthly')" id="period-monthly" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-600">Monthly</button>
+                            </div>
+                            <button onclick="window.print()" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-slate-900 text-xs font-medium flex items-center gap-1.5">
+                                <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                                <span>Print</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="analytics-content-placeholder" class="py-8 text-center text-xs text-slate-400">
+                        Chart.js Daily, Weekly, and Monthly statistical module will activate in Phase 5.
+                    </div>
+                    <div class="h-64 hidden" id="chart-wrapper">
+                        <canvas id="deptAnalyticsChart"></canvas>
+                    </div>
+                    <div id="activity-log-list" class="space-y-2"></div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- ============================================================================
+         PHASE 3 MODALS: CREATE DEPARTMENT, CO-COORDINATOR, & STUDENT EDITORS
+         ============================================================================ -->
+
+    <!-- MODAL 1: CREATE NEW DEPARTMENT (Teachers Only) -->
+    <div id="modal-create-dept" class="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-xl fade-in">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900">Create Department Workspace</h3>
+                <button onclick="closeModal('modal-create-dept')" class="text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form id="form-create-dept" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Department / Lab Name *</label>
+                    <input type="text" id="new-dept-name" required placeholder="e.g., ICT Computer Lab 1"
+                        class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-slate-900 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Room Location / Description</label>
+                    <input type="text" id="new-dept-desc" placeholder="e.g., Building B, 2nd Floor"
+                        class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:border-slate-900 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Initial Department Status</label>
+                    <select id="new-dept-status" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:border-slate-900 focus:outline-none">
+                        <option value="Open">🟢 Open</option>
+                        <option value="Closed">🔴 Closed</option>
+                        <option value="Under Maintenance">🟡 Under Maintenance</option>
+                        <option value="In Use">🔵 In Use</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Optional: Assign Co-Coordinator (2nd Teacher)</label>
+                    <select id="new-dept-cocoord" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:border-slate-900 focus:outline-none">
+                        <option value="">-- None (Only Me for Now) --</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('modal-create-dept')" class="px-4 py-2 text-xs font-medium text-slate-600 hover:text-slate-900">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium">Create Department</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: ASSIGN / UPDATE 2ND CO-COORDINATOR -->
+    <div id="modal-cocoordinator" class="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-xl fade-in">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                <h3 class="text-base font-bold text-slate-900">Assign Co-Coordinator</h3>
+                <button onclick="closeModal('modal-cocoordinator')" class="text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-500 mb-4">Select another registered Teacher to share full coordinator privileges for this department.</p>
+            <form id="form-assign-cocoord" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-medium text-slate-700 mb-1">Select Registered Teacher</label>
+                    <select id="select-cocoordinator" class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:border-slate-900 focus:outline-none">
+                        <option value="">-- Remove Co-Coordinator --</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeModal('modal-cocoordinator')" class="px-4 py-2 text-xs font-medium text-slate-600">Cancel</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium">Save Co-Coordinator</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 3: MANAGE STUDENT EDITORS (Grant/Revoke Student Edit Permissions) -->
+    <div id="modal-student-editors" class="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 max-w-lg w-full p-6 shadow-xl fade-in">
+            <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+                <div>
+                    <h3 class="text-base font-bold text-slate-900">Student Editor Permissions</h3>
+                    <p class="text-xs text-slate-500">Authorize specific students to update stocks or status in this department.</p>
+                </div>
+                <button onclick="closeModal('modal-student-editors')" class="text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Add Student Form -->
+            <form id="form-add-student-editor" class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 mb-4 space-y-3">
+                <label class="block text-xs font-semibold text-slate-800">Grant Access to a Registered Student</label>
+                <select id="select-student-to-add" required class="w-full px-3 py-2 text-xs border border-slate-200 rounded-lg bg-white focus:border-slate-900 focus:outline-none">
+                    <option value="">-- Select Student (Name & LRN) --</option>
+                </select>
+                <div class="flex items-center justify-between pt-1">
+                    <div class="flex items-center gap-4 text-xs text-slate-700">
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="perm-edit-stocks" checked class="rounded text-slate-900">
+                            <span>Can Edit Stocks</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" id="perm-update-status" checked class="rounded text-slate-900">
+                            <span>Can Update Status</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium">
+                        + Authorize Student
+                    </button>
+                </div>
+            </form>
+
+            <!-- Currently Authorized Students List -->
+            <div>
+                <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Currently Authorized Students</h4>
+                <div id="authorized-students-list" class="space-y-2 max-h-56 overflow-y-auto">
+                    <p class="text-xs text-slate-400 py-3 text-center">No student editors assigned yet.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/supabaseClient.js"></script>
+    <script src="js/profile.js"></script>
+    <script src="js/department.js"></script>
+    <!-- Phase 4 & 5 scripts will hook in automatically once created -->
+    <script src="js/inventory.js"></script>
+    <script src="js/analytics.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

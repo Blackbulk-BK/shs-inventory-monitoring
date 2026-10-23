@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LYFJSHS | Inventory & Department Status Monitoring</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Supabase JS SDK CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-grid-pattern min-h-screen flex items-center justify-center p-4 sm:p-6 text-slate-900">
+
+    <!-- Elevated Minimalist Main Card -->
+    <div class="bg-white rounded-2xl border border-slate-200/90 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.08)] w-full max-w-5xl overflow-hidden grid grid-cols-1 lg:grid-cols-12">
+        
+        <!-- ==========================================
+             LEFT PANEL: ARCHITECTURAL DARK SLATE & ID CARD
+             ========================================== -->
+        <div class="lg:col-span-5 bg-slate-950 text-white p-8 sm:p-9 flex flex-col justify-between relative">
+            
+            <div>
+                <!-- Minimalist Top Tag -->
+                <div class="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-[11px] font-medium text-slate-300 mb-7">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 status-dot"></span>
+                    <span>Practical Research 2 • Capstone</span>
+                </div>
+
+                <!-- Brand Header -->
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-xl bg-white text-slate-950 flex items-center justify-center shadow-sm shrink-0">
+                        <i data-lucide="layers" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-bold text-base tracking-tight text-white">LYFJSHS Inventory</h1>
+                        <p class="text-xs text-slate-400">Real-Time Department Status</p>
+                    </div>
+                </div>
+
+                <p class="text-xs text-slate-400 leading-relaxed mb-7">
+                    Centralized asset tracking, dual-coordinator management, delegated student editing, and automated daily, weekly, and monthly analytics.
+                </p>
+
+                <!-- TACTILE MINIMALIST DIGITAL ID CARD -->
+                <div class="rounded-xl bg-slate-900/90 border border-slate-800 p-4 shadow-inner">
+                    <div class="flex items-center justify-between pb-3 mb-3.5 border-b border-slate-800/90">
+                        <div class="flex items-center gap-1.5">
+                            <i data-lucide="badge-check" class="w-3.5 h-3.5 text-blue-400"></i>
+                            <span class="text-[10px] font-semibold uppercase tracking-widest text-slate-400">Digital Identification</span>
+                        </div>
+                        <span id="card-role-badge" class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                            TEACHER
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-3.5">
+                        <img id="avatar-preview" src="https://ui-avatars.com/api/?name=User&background=1e293b&color=cbd5e1&bold=true" 
+                            alt="Formal ID Preview" 
+                            class="w-14 h-14 rounded-lg object-cover border border-slate-700 bg-slate-800 shrink-0">
+
+                        <div class="min-w-0 flex-1">
+                            <h4 id="card-name-preview" class="font-semibold text-sm text-white truncate">
+                                Your Full Name
+                            </h4>
+                            <p id="card-sub-preview" class="text-xs text-slate-300 truncate mt-0.5">
+                                Teacher I • Age --
+                            </p>
+                            <p id="card-meta-preview" class="font-mono-code text-[11px] text-slate-400 truncate mt-1">
+                                Coordinator Access
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Minimalist Status Indicator Grid -->
+                <div class="mt-7">
+                    <p class="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2.5">Live Department States</p>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            <span>Open</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                            <span>Closed</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                            <span>Maintenance</span>
+                        </div>
+                        <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-slate-300">
+                            <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                            <span>In Use</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Institution Footer -->
+            <div class="pt-5 border-t border-slate-900 flex items-center justify-between text-[11px] text-slate-500 mt-8">
+                <span>Luis Y. Ferrer Jr. SHS</span>
+                <span class="font-mono-code text-slate-400">ICT-CP 12-KOTLIN</span>
+            </div>
+        </div>
+
+        <!-- ==========================================
+             RIGHT PANEL: ELEVATED MINIMALIST FORMS
+             ========================================== -->
+        <div class="lg:col-span-7 p-7 sm:p-10 max-h-[92vh] overflow-y-auto bg-white flex flex-col justify-between">
+            
+            <div>
+                <!-- Clean Segmented Switcher -->
+                <div class="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200/70 w-full mb-7">
+                    <button type="button" id="tab-login" onclick="switchAuthTab('login')"
+                        class="w-1/2 py-2.5 text-xs font-semibold rounded-lg bg-white text-slate-900 shadow-sm transition-all flex items-center justify-center gap-1.5">
+                        <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
+                        <span>Sign In</span>
+                    </button>
+                    <button type="button" id="tab-register" onclick="switchAuthTab('register')"
+                        class="w-1/2 py-2.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                        <span>Create Account</span>
+                    </button>
+                </div>
+
+                <!-- ==========================================
+                     1. REFINED SIGN IN FORM
+                     ========================================== -->
+                <form id="login-form" class="space-y-5 fade-in py-2">
+                    <div class="flex items-start gap-3.5 pb-2 border-b border-slate-100">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-800 flex items-center justify-center shrink-0">
+                            <i data-lucide="key-round" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-bold text-slate-900 tracking-tight">Welcome back</h2>
+                            <p class="text-xs text-slate-500 mt-0.5">Sign in with your registered school account to access the portal.</p>
+                        </div>
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Registered Email Address</label>
+                        <div class="relative">
+                            <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="email" id="login-email" required placeholder="name@lyfjshs.edu.ph"
+                                class="w-full pl-10 pr-3.5 py-2.5 text-sm bg-white border border-slate-200 rounded-xl hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                        </div>
+                    </div>
+
+                    <!-- Password -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-700">Account Password</label>
+                            <span class="text-[11px] text-slate-400">Encrypted Session</span>
+                        </div>
+                        <div class="relative">
+                            <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <input type="password" id="login-password" required placeholder="Enter your password"
+                                class="w-full pl-10 pr-10 py-2.5 text-sm bg-white border border-slate-200 rounded-xl hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                            <button type="button" onclick="togglePasswordVisibility('login-password', 'eye-login')"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition">
+                                <i id="eye-login" data-lucide="eye" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <div class="pt-1">
+                        <button type="submit" id="btn-login"
+                            class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.99]">
+                            <span>Sign In to Workspace</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    <!-- Helpful Switch Card -->
+                    <div class="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 mt-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                                <i data-lucide="user-check" class="w-4 h-4"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs font-semibold text-slate-800">First time using the system?</p>
+                                <p class="text-[11px] text-slate-500">Create a Teacher or Student profile in seconds.</p>
+                            </div>
+                        </div>
+                        <button type="button" onclick="switchAuthTab('register')"
+                            class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:border-slate-900 text-xs font-semibold text-slate-800 transition shrink-0">
+                            Register
+                        </button>
+                    </div>
+                </form>
+
+                <!-- ==========================================
+                     2. CREATE ACCOUNT FORM (DYNAMIC ROLES)
+                     ========================================== -->
+                <form id="register-form" class="space-y-4 hidden fade-in">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900 tracking-tight">Create digital profile</h2>
+                        <p class="text-xs text-slate-500 mt-0.5">Select your role and fill out your details below.</p>
+                    </div>
+
+                    <!-- Tactile Role Cards -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Select Account Role</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="role" value="teacher" checked onchange="toggleRoleFields()" class="peer hidden">
+                                <div class="p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50/70 peer-checked:border-slate-900 peer-checked:ring-1 peer-checked:ring-slate-900 peer-checked:bg-slate-50/80 transition flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                                        <i data-lucide="briefcase" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-slate-900">Teacher</p>
+                                        <p class="text-[11px] text-slate-500">Faculty / Principal</p>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label class="cursor-pointer">
+                                <input type="radio" name="role" value="student" onchange="toggleRoleFields()" class="peer hidden">
+                                <div class="p-3 rounded-xl border border-slate-200 bg-white hover:bg-slate-50/70 peer-checked:border-slate-900 peer-checked:ring-1 peer-checked:ring-slate-900 peer-checked:bg-slate-50/80 transition flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                                        <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs font-semibold text-slate-900">Student</p>
+                                        <p class="text-[11px] text-slate-500">SHS Learner</p>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- OPTIONAL Formal Picture Upload (Clean Uncramped Layout) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-700">Formal ID Picture</label>
+                            <span class="text-[11px] font-medium text-slate-400">Optional • Can be uploaded later</span>
+                        </div>
+                        <label for="reg-avatar" class="flex items-center justify-between gap-3 p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-dashed border-slate-300 hover:border-slate-400 transition cursor-pointer">
+                            <div class="flex items-center gap-3 min-w-0 flex-1">
+                                <div class="w-9 h-9 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
+                                    <i data-lucide="image-plus" class="w-4 h-4"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p id="file-chosen-label" class="text-xs font-medium text-slate-800 truncate">Upload formal photo (or skip for now)</p>
+                                    <p class="text-[11px] text-slate-400">Supports JPG, PNG, WEBP up to 3MB</p>
+                                </div>
+                            </div>
+                            <span class="px-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 text-slate-700 rounded-lg shadow-2xs shrink-0">
+                                Choose File
+                            </span>
+                            <!-- Removed 'required' so users can skip and upload later -->
+                            <input type="file" id="reg-avatar" accept="image/png, image/jpeg, image/webp" onchange="previewAvatar(event)" class="hidden">
+                        </label>
+                    </div>
+
+                    <!-- Full Name & Age (Fixed explicit bg-white and clean grid) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <div class="sm:col-span-9">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Full Name (Last, First, M.I.) *</label>
+                            <div class="relative">
+                                <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <input type="text" id="reg-fullname" required placeholder="Dela Cruz, Juan A." oninput="updateLiveIDCard()"
+                                    class="w-full pl-9 pr-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                            </div>
+                        </div>
+                        <div class="sm:col-span-3">
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Age *</label>
+                            <input type="number" id="reg-age" required min="12" max="90" placeholder="18" oninput="updateLiveIDCard()"
+                                class="w-full px-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none text-center font-medium transition">
+                        </div>
+                    </div>
+
+                    <!-- ==========================================
+                         TEACHER-ONLY FIELDS (OFFICIAL DEPED RANKS)
+                         ========================================== -->
+                    <div id="teacher-fields" class="fade-in p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                        <label class="block text-xs font-semibold text-slate-700 mb-1.5">Teacher Rank / Designation *</label>
+                        <div class="relative">
+                            <i data-lucide="award" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                            <select id="reg-teacher-rank" onchange="updateLiveIDCard()"
+                                class="w-full pl-9 pr-8 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                                <optgroup label="Classroom Teaching">
+                                    <option value="Teacher I">Teacher I</option>
+                                    <option value="Teacher II">Teacher II</option>
+                                    <option value="Teacher III">Teacher III</option>
+                                    <option value="Teacher IV">Teacher IV</option>
+                                    <option value="Teacher V">Teacher V</option>
+                                    <option value="Teacher VI">Teacher VI</option>
+                                    <option value="Teacher VII">Teacher VII</option>
+                                    <option value="Master Teacher I">Master Teacher I</option>
+                                    <option value="Master Teacher II">Master Teacher II</option>
+                                    <option value="Master Teacher III">Master Teacher III</option>
+                                    <option value="Master Teacher IV">Master Teacher IV</option>
+                                    <option value="Master Teacher V">Master Teacher V</option>
+                                </optgroup>
+                                <optgroup label="School Administration">
+                                    <option value="School Principal I">School Principal I</option>
+                                    <option value="School Principal II">School Principal II</option>
+                                    <option value="School Principal III">School Principal III</option>
+                                    <option value="School Principal IV">School Principal IV</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- ==========================================
+                         STUDENT-ONLY FIELDS
+                         ========================================== -->
+                    <div id="student-fields" class="fade-in p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3 hidden">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">12-Digit LRN *</label>
+                                <input type="text" id="reg-lrn" maxlength="12" pattern="\d{12}" placeholder="109876543210" oninput="updateLiveIDCard()"
+                                    class="w-full px-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none font-mono-code transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Grade Level *</label>
+                                <select id="reg-grade" onchange="updateLiveIDCard()"
+                                    class="w-full px-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                                    <option value="Grade 11">Grade 11</option>
+                                    <option value="Grade 12" selected>Grade 12</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">SHS Track *</label>
+                                <select id="reg-track" onchange="updateLiveIDCard()"
+                                    class="w-full px-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                                    <option value="TVL">TVL Track</option>
+                                    <option value="Academic">Academic Track</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-700 mb-1">Strand & Section *</label>
+                                <input type="text" id="reg-strand" placeholder="ICT-CP 12-KOTLIN" oninput="updateLiveIDCard()"
+                                    class="w-full px-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Credentials -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Email Address *</label>
+                            <div class="relative">
+                                <i data-lucide="mail" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <input type="email" id="reg-email" required placeholder="user@lyfjshs.edu.ph"
+                                    class="w-full pl-9 pr-3 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-700 mb-1">Password (6+ chars) *</label>
+                            <div class="relative">
+                                <i data-lucide="lock" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                                <input type="password" id="reg-password" required minlength="6" placeholder="••••••••"
+                                    class="w-full pl-9 pr-9 py-2 text-sm bg-white text-slate-900 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 focus:outline-none transition">
+                                <button type="button" onclick="togglePasswordVisibility('reg-password', 'eye-reg')"
+                                    class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">
+                                    <i id="eye-reg" data-lucide="eye" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-1">
+                        <button type="submit" id="btn-register"
+                            class="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl text-sm transition flex items-center justify-center gap-2 shadow-xs active:scale-[0.99]">
+                            <span>Create Digital Profile</span>
+                            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/supabaseClient.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
