@@ -1,21 +1,19 @@
 // ============================================================================
 // FILE: js/auth.js
-// Handles Login, Dynamic Registration, Live Profile Preview & Optional Photo
+// Handles Login, Dynamic Registration, Live Profile Preview & Metadata Backup
 // ============================================================================
 
 let hasCustomAvatarSelected = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!window.supabaseClient) return;
+    const { data: { session } } = await window.supabaseClient.auth.getSession();
     if (session) {
         window.location.href = 'dashboard.html';
     }
 });
 
-/**
- * Switches between Sign In and Create Account views
- */
-function switchAuthTab(mode) {
+window.switchAuthTab = function(mode) {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const tabLogin = document.getElementById('tab-login');
@@ -33,12 +31,9 @@ function switchAuthTab(mode) {
         tabLogin.className = "w-1/2 py-2.5 text-xs font-medium rounded-lg text-slate-500 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5";
         updateLiveIDCard();
     }
-}
+};
 
-/**
- * Show / Hide Password Toggle
- */
-function togglePasswordVisibility(inputId, iconId) {
+window.togglePasswordVisibility = function(inputId, iconId) {
     const input = document.getElementById(inputId);
     const icon = document.getElementById(iconId);
     if (input.type === 'password') {
@@ -48,13 +43,10 @@ function togglePasswordVisibility(inputId, iconId) {
         input.type = 'password';
         icon.setAttribute('data-lucide', 'eye');
     }
-    lucide.createIcons();
-}
+    if (window.lucide) lucide.createIcons();
+};
 
-/**
- * Dynamically toggles Teacher Rank vs Student LRN/Strand fields
- */
-function toggleRoleFields() {
+window.toggleRoleFields = function() {
     const selectedRole = document.querySelector('input[name="role"]:checked').value;
     const teacherFields = document.getElementById('teacher-fields');
     const studentFields = document.getElementById('student-fields');
@@ -73,13 +65,12 @@ function toggleRoleFields() {
         strandInput.required = true;
     }
     updateLiveIDCard();
-}
+};
 
-/**
- * Updates the Live Digital ID Card on the left panel as the user types
- */
-function updateLiveIDCard() {
-    const role = document.querySelector('input[name="role"]:checked').value;
+window.updateLiveIDCard = function() {
+    const roleEl = document.querySelector('input[name="role"]:checked');
+    if (!roleEl) return;
+    const role = roleEl.value;
     const fullName = document.getElementById('reg-fullname').value.trim() || 'Your Full Name';
     const age = document.getElementById('reg-age').value.trim() || '--';
 
@@ -112,12 +103,9 @@ function updateLiveIDCard() {
         subPreview.textContent = `${grade} (${track}) • Age ${age}`;
         metaPreview.textContent = `${strand} • LRN: ${lrn}`;
     }
-}
+};
 
-/**
- * Shows live image preview on the Digital ID Card when user selects a photo
- */
-function previewAvatar(event) {
+window.previewAvatar = function(event) {
     const file = event.target.files[0];
     const fileLabel = document.getElementById('file-chosen-label');
     if (!file) return;
@@ -136,11 +124,9 @@ function previewAvatar(event) {
         document.getElementById('avatar-preview').src = e.target.result;
     };
     reader.readAsDataURL(file);
-}
+};
 
-// ============================================================================
-// HANDLE LOGIN SUBMISSION
-// ============================================================================
+// LOGIN HANDLER
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('login-email').value.trim();
@@ -151,28 +137,25 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     btn.innerHTML = `<span>Signing in...</span>`;
 
     try {
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        const { error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
         if (error) throw error;
-
         window.location.href = 'dashboard.html';
     } catch (err) {
         Swal.fire('Sign In Failed', err.message || 'Invalid email or password.', 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = `<span>Sign In to Workspace</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     }
 });
 
-// ============================================================================
-// HANDLE REGISTRATION & OPTIONAL FORMAL PICTURE UPLOAD
-// ============================================================================
+// REGISTRATION HANDLER (Saves both Auth User Metadata + Profiles Table Row)
 document.getElementById('register-form').addEventListener('submit', async (e) => {
     e.preventDefault();
 
     const role = document.querySelector('input[name="role"]:checked').value;
     const fullName = document.getElementById('reg-fullname').value.trim();
-    const age = parseInt(document.getElementById('reg-age').value, 10);
+    const age = parseInt(document.getElementById('reg-age').value, 10) || 18;
     const email = document.getElementById('reg-email').value.trim();
     const password = document.getElementById('reg-password').value;
     const avatarInput = document.getElementById('reg-avatar');
@@ -194,34 +177,45 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     btn.innerHTML = `<span>Creating profile...</span>`;
 
     try {
-        // 1. Register user in Supabase Auth
-        const { data: authData, error: authError } = await supabaseClient.auth.signUp({
+        let avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0f172a&color=fff&bold=true`;
+
+        // 1. Sign up and store metadata backup inside auth.users
+        const { data: authData, error: authError } = await window.supabaseClient.auth.signUp({
             email,
-            password
+            password,
+            options: {
+                data: {
+                    role,
+                    full_name: fullName,
+                    age,
+                    avatar_url: avatarUrl,
+                    teacher_rank: teacherRank,
+                    lrn,
+                    track,
+                    strand,
+                    grade_level: gradeLevel
+                }
+            }
         });
 
         if (authError) throw authError;
-        
-        // Ensure user ID exists (requires "Confirm Email" to be turned OFF in Supabase Auth)
+
         const userId = authData.user?.id || authData.session?.user?.id;
         if (!userId) {
-            throw new Error("User ID not returned. Please ensure 'Confirm email' is toggled OFF under Supabase Authentication > Providers > Email.");
+            throw new Error("User ID not returned. Make sure 'Confirm email' is OFF in Supabase Authentication > Providers > Email.");
         }
 
-        // 2. Default avatar URL using initials
-        let avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=0f172a&color=fff&bold=true`;
-
-        // 3. Only attempt storage upload if a file was actually chosen
+        // 2. Upload photo if selected
         if (avatarFile) {
             const fileExt = avatarFile.name.split('.').pop();
             const filePath = `${role}s/${userId}-${Date.now()}.${fileExt}`;
 
-            const { error: uploadError } = await supabaseClient.storage
+            const { error: uploadError } = await window.supabaseClient.storage
                 .from('profile-pictures')
                 .upload(filePath, avatarFile, { cacheControl: '3600', upsert: true });
 
             if (!uploadError) {
-                const { data: publicUrlData } = supabaseClient.storage
+                const { data: publicUrlData } = window.supabaseClient.storage
                     .from('profile-pictures')
                     .getPublicUrl(filePath);
                 if (publicUrlData?.publicUrl) {
@@ -230,10 +224,10 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
             }
         }
 
-        // 4. Insert unified record into 'profiles' table
-        const { error: profileError } = await supabaseClient
+        // 3. Upsert into 'profiles' table
+        const { error: profileError } = await window.supabaseClient
             .from('profiles')
-            .insert([{
+            .upsert([{
                 id: userId,
                 email: email,
                 role: role,
@@ -245,7 +239,7 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
                 track: track,
                 strand: strand,
                 grade_level: gradeLevel
-            }]);
+            }], { onConflict: 'id' });
 
         if (profileError) throw profileError;
 
@@ -264,6 +258,6 @@ document.getElementById('register-form').addEventListener('submit', async (e) =>
     } finally {
         btn.disabled = false;
         btn.innerHTML = `<span>Create Digital Profile</span><i data-lucide="arrow-right" class="w-4 h-4"></i>`;
-        lucide.createIcons();
+        if (window.lucide) lucide.createIcons();
     }
 });
