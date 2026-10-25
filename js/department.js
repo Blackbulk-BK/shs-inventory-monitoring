@@ -58,6 +58,9 @@ async function loadDepartments() {
 /**
  * Renders the sidebar directory of departments
  */
+/**
+ * Renders the sidebar directory of departments with full-width readable titles
+ */
 function renderDepartmentList(departments) {
     const container = document.getElementById('department-list-container');
     if (!departments.length) {
@@ -70,26 +73,29 @@ function renderDepartmentList(departments) {
         const badge = getStatusBadgeMarkup(dept.status);
         return `
             <div onclick="selectDepartment('${dept.id}')"
-                class="p-3 rounded-xl border transition cursor-pointer flex items-center justify-between gap-2 ${
+                class="p-3.5 rounded-xl border transition-all cursor-pointer space-y-2 ${
                     isSelected 
-                    ? 'bg-slate-900 text-white border-slate-900 shadow-xs' 
-                    : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200/80'
+                    ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+                    : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90'
                 }">
-                <div class="min-w-0">
-                    <p class="text-xs font-bold truncate">${dept.dept_name}</p>
-                    <p class="text-[11px] ${isSelected ? 'text-slate-300' : 'text-slate-400'} truncate">
-                        ${dept.primary_coord?.full_name || 'Coordinator'}
-                    </p>
+                <div class="flex items-start justify-between gap-2">
+                    <p class="text-xs font-bold leading-snug">${dept.dept_name}</p>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                        isSelected ? 'bg-white/15 text-white' : badge.classes
+                    }">
+                        <span class="${badge.dotClass}"></span>
+                        <span>${dept.status}</span>
+                    </span>
                 </div>
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
-                    isSelected ? 'bg-white/15 text-white' : badge.classes
-                }">
-                    <span class="${badge.dotClass}"></span>
-                    <span>${dept.status}</span>
-                </span>
+                <div class="flex items-center justify-between text-[11px] ${isSelected ? 'text-slate-300' : 'text-slate-400'}">
+                    <span class="truncate">Coord: ${dept.primary_coord?.full_name || 'Assigned'}</span>
+                    <i data-lucide="chevron-right" class="w-3.5 h-3.5 shrink-0"></i>
+                </div>
             </div>
         `;
     }).join('');
+
+    if (window.lucide) lucide.createIcons();
 }
 
 /**
