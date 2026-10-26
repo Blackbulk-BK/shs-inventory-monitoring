@@ -1,6 +1,6 @@
 // ============================================================================
 // FILE: js/department.js
-// Emoji-Free Facility Directory, Segmented Inside/Outside Switch & Live Status
+// Schema-Safe Facility Directory, Segmented Inside/Outside Switch & Live Status
 // ============================================================================
 
 window.allDepartments = [];
@@ -81,7 +81,7 @@ window.searchTeacherForAssignment = async function(rawQuery, mode) {
 
     const { data: teachers } = await window.supabaseClient
         .from('profiles')
-        .select('id, full_name, email, teacher_rank, last_seen_at')
+        .select('*')
         .eq('role', 'teacher')
         .neq('id', window.currentUserProfile?.id)
         .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
@@ -93,7 +93,7 @@ window.searchTeacherForAssignment = async function(rawQuery, mode) {
     }
 
     resultsBox.innerHTML = teachers.map(t => {
-        const online = window.isUserOnline ? window.isUserOnline(t.last_seen_at) : false;
+        const online = window.isUserOnline ? window.isUserOnline(t.last_seen_at) : true;
         return `
             <div onclick="pickTeacherAsCoCoord('${t.id}', '${t.full_name.replace(/'/g, "\\'")}', '${t.teacher_rank || 'Teacher'}', '${mode}')"
                 class="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-900 cursor-pointer flex items-center justify-between text-xs transition">
@@ -149,7 +149,7 @@ window.searchStudentForEditorAssignment = async function(rawQuery) {
 
     const { data: students } = await window.supabaseClient
         .from('profiles')
-        .select('id, full_name, lrn, email, strand, last_seen_at')
+        .select('*')
         .eq('role', 'student')
         .or(`full_name.ilike.%${query}%,lrn.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(8);
@@ -160,7 +160,7 @@ window.searchStudentForEditorAssignment = async function(rawQuery) {
     }
 
     resultsBox.innerHTML = students.map(s => {
-        const online = window.isUserOnline ? window.isUserOnline(s.last_seen_at) : false;
+        const online = window.isUserOnline ? window.isUserOnline(s.last_seen_at) : true;
         return `
             <div onclick="pickStudentForEditor('${s.id}', '${s.full_name.replace(/'/g, "\\'")}', '${s.lrn || 'N/A'}')"
                 class="p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-900 cursor-pointer flex items-center justify-between text-xs transition">
@@ -205,18 +205,25 @@ function getStatusBadgeMarkup(status) {
     return map[status] || map['Open'];
 }
 
+/**
+ * Uses schema-safe (*) join so missing optional columns never break the query
+ */
 window.loadDepartments = async function() {
+    const container = document.getElementById('department-list-container');
     const { data, error } = await window.supabaseClient
         .from('departments')
         .select(`
             *,
-            primary_coord:profiles!departments_primary_coordinator_id_fkey(id, full_name, email, teacher_rank, avatar_url, last_seen_at),
-            co_coord:profiles!departments_co_coordinator_id_fkey(id, full_name, email, teacher_rank, avatar_url, last_seen_at)
+            primary_coord:profiles!departments_primary_coordinator_id_fkey(*),
+            co_coord:profiles!departments_co_coordinator_id_fkey(*)
         `)
         .order('created_at', { ascending: true });
 
     if (error) {
         console.error('Error loading departments:', error);
+        if (container) {
+            container.innerHTML = `<div class="p-4 text-center text-xs text-rose-500">Could not load facilities: ${error.message}</div>`;
+        }
         return;
     }
 
@@ -233,22 +240,19 @@ window.loadDepartments = async function() {
     }
 };
 
-/**
- * Renders the sidebar list of Facilities with clean geometry, zero emojis, and clear status/presence pills
- */
 function renderDepartmentList(departments) {
     const container = document.getElementById('department-list-container');
     if (!container) return;
 
     if (!departments.length) {
-        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No facilities registered yet.</div>`;
+        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No facilities registered yet. Click "+ New" to add one.</div>`;
         return;
     }
 
     container.innerHTML = departments.map(dept => {
         const isSelected = dept.id === window.activeDepartmentId;
         const badge = getStatusBadgeMarkup(dept.status);
-        const anyCoordInside = dept.coord1_inside || dept.coord2_inside;
+        const anyCoordInside = Boolean(dept.coord1_inside || dept.coord2_inside);
 
         return `
             <div onclick="selectDepartment('${dept.id}')"
@@ -257,7 +261,6 @@ function renderDepartmentList(departments) {
                     ? 'bg-slate-950 text-white border-slate-900 shadow-md' 
                     : 'bg-white hover:border-slate-400 text-slate-900 border-slate-200/90'
                 }">
-                <!-- Row 1: Full Facility Name + Status Pill -->
                 <div class="flex items-center justify-between gap-2">
                     <h4 class="text-xs font-bold tracking-tight truncate">${dept.dept_name}</h4>
                     <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
@@ -268,7 +271,6 @@ function renderDepartmentList(departments) {
                     </span>
                 </div>
 
-                <!-- Row 2: Coordinator Name + Clean Inside/Outside Indicator -->
                 <div class="mt-2.5 pt-2 border-t ${isSelected ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between gap-2 text-[11px]">
                     <span class="truncate ${isSelected ? 'text-slate-300' : 'text-slate-500'}">
                         ${dept.primary_coord?.full_name || 'Assigned Coordinator'}
@@ -298,9 +300,6 @@ window.filterDepartmentList = function() {
     renderDepartmentList(filtered);
 };
 
-/**
- * Selects a facility and renders the Segmented Status Broadcaster and Segmented Inside/Outside Switch
- */
 window.selectDepartment = async function(deptId) {
     window.activeDepartmentId = deptId;
     const dept = window.allDepartments.find(d => d.id === deptId);
@@ -319,7 +318,6 @@ window.selectDepartment = async function(deptId) {
     statusBadge.className = `inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${badgeStyle.classes}`;
     statusBadge.innerHTML = `<span class="${badgeStyle.dotClass}"></span><span>${dept.status}</span>`;
 
-    // Highlight active button in the Emoji-Free Segmented Status Broadcaster
     document.querySelectorAll('.status-seg-btn').forEach(btn => {
         const btnStatus = btn.getAttribute('data-status');
         if (btnStatus === dept.status) {
@@ -333,20 +331,21 @@ window.selectDepartment = async function(deptId) {
     const isPrimaryCoord = dept.primary_coordinator_id === myId;
     const isCoCoord = dept.co_coordinator_id === myId;
 
-    // 1. Render Primary Coordinator Card with Segmented [ Inside | Outside ] Switch
+    // 1. Render Primary Coordinator Card (Works whether dashboard.html is new or old)
     const pCoord = dept.primary_coord;
-    const pCard = document.getElementById('primary-coord-card');
+    const pCard = document.getElementById('primary-coord-card') || document.getElementById('primary-coord-name')?.closest('.p-3\\.5, .p-4, .flex');
     if (pCoord && pCard) {
-        const pOnline = window.isUserOnline ? window.isUserOnline(pCoord.last_seen_at) : false;
-        const pInside = dept.coord1_inside === true;
+        const pOnline = window.isUserOnline ? window.isUserOnline(pCoord.last_seen_at) : true;
+        const pInside = Boolean(dept.coord1_inside);
         const pAvatar = pCoord.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(pCoord.full_name)}&background=0f172a&color=fff`;
 
+        pCard.className = "p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 flex flex-col justify-between gap-3 hover-lift";
         pCard.innerHTML = `
             <div class="flex items-start justify-between gap-2">
                 <div class="flex items-center gap-3 min-w-0">
                     <div class="relative shrink-0">
                         <img src="${pAvatar}" class="w-11 h-11 rounded-xl object-cover border border-slate-300 bg-white">
-                        <span title="${pOnline ? 'Active Now' : 'Offline'}" class="w-2.5 h-2.5 rounded-full border-2 border-white absolute -bottom-0.5 -right-0.5 ${pOnline ? 'bg-emerald-500 status-dot' : 'bg-slate-300'}"></span>
+                        <span class="w-2.5 h-2.5 rounded-full border-2 border-white absolute -bottom-0.5 -right-0.5 ${pOnline ? 'bg-emerald-500 status-dot' : 'bg-slate-300'}"></span>
                     </div>
                     <div class="min-w-0">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-blue-600 block">Coordinator 1</span>
@@ -367,34 +366,30 @@ window.selectDepartment = async function(deptId) {
                     <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">My Presence</span>
                     <div class="inline-flex p-0.5 rounded-lg bg-slate-200/70 border border-slate-300/60">
                         <button type="button" onclick="toggleCoordinatorPresence('coord1', true)"
-                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition flex items-center gap-1 ${
+                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${
                                 pInside ? 'bg-emerald-600 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                            }">
-                            <span>Inside</span>
-                        </button>
+                            }">Inside</button>
                         <button type="button" onclick="toggleCoordinatorPresence('coord1', false)"
-                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition flex items-center gap-1 ${
+                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${
                                 !pInside ? 'bg-slate-900 text-white shadow-2xs' : 'text-slate-600 hover:text-slate-900'
-                            }">
-                            <span>Outside</span>
-                        </button>
+                            }">Outside</button>
                     </div>
                 </div>
             ` : `
                 <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
                     <span>Account Status</span>
-                    <span class="font-semibold ${pOnline ? 'text-emerald-600' : 'text-slate-400'}">${window.formatLastSeen ? window.formatLastSeen(pCoord.last_seen_at) : 'Offline'}</span>
+                    <span class="font-semibold ${pOnline ? 'text-emerald-600' : 'text-slate-400'}">${window.formatLastSeen ? window.formatLastSeen(pCoord.last_seen_at) : 'Active'}</span>
                 </div>
             `}
         `;
     }
 
-    // 2. Render Co-Coordinator Card with Segmented [ Inside | Outside ] Switch
+    // 2. Render Co-Coordinator Card
     const cCoord = dept.co_coord;
     const coFooter = document.getElementById('co-coord-presence-footer');
     if (cCoord) {
-        const cOnline = window.isUserOnline ? window.isUserOnline(cCoord.last_seen_at) : false;
-        const cInside = dept.coord2_inside === true;
+        const cOnline = window.isUserOnline ? window.isUserOnline(cCoord.last_seen_at) : true;
+        const cInside = Boolean(dept.coord2_inside);
         document.getElementById('co-coord-avatar').src = cCoord.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(cCoord.full_name)}&background=334155&color=fff`;
         document.getElementById('co-coord-name').textContent = cCoord.full_name;
         document.getElementById('co-coord-rank').textContent = `${cCoord.teacher_rank || 'Teacher'} • ${cOnline ? 'Active Now' : 'Offline'}`;
@@ -405,13 +400,9 @@ window.selectDepartment = async function(deptId) {
                     <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">My Presence</span>
                     <div class="inline-flex p-0.5 rounded-lg bg-slate-200/70 border border-slate-300/60">
                         <button type="button" onclick="toggleCoordinatorPresence('coord2', true)"
-                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${cInside ? 'bg-emerald-600 text-white' : 'text-slate-600'}">
-                            Inside
-                        </button>
+                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${cInside ? 'bg-emerald-600 text-white' : 'text-slate-600'}">Inside</button>
                         <button type="button" onclick="toggleCoordinatorPresence('coord2', false)"
-                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${!cInside ? 'bg-slate-900 text-white' : 'text-slate-600'}">
-                            Outside
-                        </button>
+                            class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${!cInside ? 'bg-slate-900 text-white' : 'text-slate-600'}">Outside</button>
                     </div>
                 </div>
             ` : `
@@ -443,7 +434,7 @@ window.selectDepartment = async function(deptId) {
 
 window.toggleCoordinatorPresence = async function(slot, newState) {
     if (!window.activeDepartmentId) return;
-    const updateField = slot === 'coord1' ? { coord1_inside: newState, updated_at: new Date().toISOString() } : { coord2_inside: newState, updated_at: new Date().toISOString() };
+    const updateField = slot === 'coord1' ? { coord1_inside: newState } : { coord2_inside: newState };
 
     const { error } = await window.supabaseClient
         .from('departments')
@@ -451,7 +442,11 @@ window.toggleCoordinatorPresence = async function(slot, newState) {
         .eq('id', window.activeDepartmentId);
 
     if (error) {
-        Swal.fire('Update Error', error.message, 'error');
+        Swal.fire(
+            'Database Column Needed',
+            'Please run the SQL snippet in Supabase SQL Editor to add coord1_inside and coord2_inside to the departments table.',
+            'info'
+        );
         return;
     }
 
@@ -466,12 +461,12 @@ window.toggleCoordinatorPresence = async function(slot, newState) {
 };
 
 async function evaluateUserPermissionsForDept(dept) {
-    const userId = window.currentUserProfile.id;
+    const userId = window.currentUserProfile?.id;
     const isCoordinator = (dept.primary_coordinator_id === userId) || (dept.co_coordinator_id === userId);
 
     const { data: editors } = await window.supabaseClient
         .from('department_student_editors')
-        .select(`*, student:profiles!department_student_editors_student_id_fkey(id, full_name, lrn, strand, grade_level, avatar_url, last_seen_at)`)
+        .select(`*, student:profiles!department_student_editors_student_id_fkey(*)`)
         .eq('department_id', dept.id);
 
     const safeEditors = editors || [];
@@ -598,7 +593,7 @@ function renderAuthorizedStudentsList(editors) {
 
     listContainer.innerHTML = editors.map(ed => {
         const st = ed.student;
-        const online = window.isUserOnline ? window.isUserOnline(st?.last_seen_at) : false;
+        const online = window.isUserOnline ? window.isUserOnline(st?.last_seen_at) : true;
         return `
             <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-200">
                 <div class="flex items-center gap-2.5 min-w-0">
@@ -638,8 +633,7 @@ function setupDepartmentForms() {
                 description: desc,
                 status: status,
                 primary_coordinator_id: window.currentUserProfile.id,
-                co_coordinator_id: selectedNewDeptCoCoordId || null,
-                coord1_inside: true
+                co_coordinator_id: selectedNewDeptCoCoordId || null
             }])
             .select()
             .single();
