@@ -709,3 +709,93 @@ function subscribeToRealtimeDepartments() {
         })
         .subscribe();
 }
+
+// ============================================================================
+// ADD TO THE BOTTOM OF: js/department.js
+// Delete Department Option (Restricted to Primary & Co-Coordinator)
+// ============================================================================
+
+const originalSelectDepartment = window.selectDepartment;
+window.selectDepartment = async function(deptId) {
+    await originalSelectDepartment(deptId);
+    injectDeleteDepartmentButton(deptId);
+};
+
+function injectDeleteDepartmentButton(deptId) {
+    const dept = (window.allDepartments || []).find(d => d.id === deptId);
+    if (!dept) return;
+
+    const myId = window.currentUserProfile?.id;
+    const isCoordinator = (dept.primary_coordinator_id === myId) || (dept.co_coordinator_id === myId);
+
+    // Remove existing delete button if switching departments
+    const existingBtn = document.getElementById('btn-delete-department');
+    if (existingBtn) existingBtn.remove();
+
+    if (!isCoordinator) return;
+
+    const badgeContainer = document.getElementById('user-access-level-badge')?.parentElement;
+    if (badgeContainer) {
+        const deleteBtnHTML = `
+            <button id="btn-delete-department" type="button" onclick="confirmDeleteDepartment('${dept.id}', '${dept.dept_name.replace(/'/g, "\\'")}')"
+                class="px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-600 hover:text-white transition flex items-center gap-1 no-print">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>Delete Facility</span>
+            </button>
+        `;
+        badgeContainer.insertAdjacentHTML('beforeend', deleteBtnHTML);
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+window.confirmDeleteDepartment = async function(deptId, deptName) {
+    const result = await Swal.fire({
+        title: `Delete "${deptName}"?`,
+        html: `<p class="text-xs text-slate-600">This will permanently remove <strong>${deptName}</strong> along with all of its inventory stocks, student editor permissions, and activity logs. This action cannot be undone.</p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, Delete Facility',
+        cancelButtonText: 'Cancel'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({
+        title: 'Deleting Facility...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+    });
+
+    try {
+        // 1. Clean up child records first so foreign key constraints never block deletion
+        await window.supabaseClient.from('activity_logs').delete().eq('department_id', deptId);
+        await window.supabaseClient.from('inventory_stocks').delete().eq('department_id', deptId);
+        await window.supabaseClient.from('department_student_editors').delete().eq('department_id', deptId);
+
+        // 2. Delete the department itself
+        const { error } = await window.supabaseClient
+            .from('departments')
+            .delete()
+            .eq('id', deptId);
+
+        if (error) throw error;
+
+        window.activeDepartmentId = null;
+        document.getElementById('active-workspace')?.classList.add('hidden');
+        document.getElementById('empty-workspace-state')?.classList.remove('hidden');
+
+        await window.loadDepartments();
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Facility Deleted',
+            text: `${deptName} has been permanently removed.`,
+            timer: 1400,
+            showConfirmButton: false
+        });
+    } catch (err) {
+        Swal.fire('Delete Failed', err.message || 'Could not delete this facility.', 'error');
+    }
+};
