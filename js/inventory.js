@@ -141,8 +141,11 @@ function getConditionBadge(status) {
  * - Students only see 'public' stocks
  */
 function getVisibleStocksForCurrentUser(allStocks) {
-    const isTeacher = window.currentUserProfile?.role === 'teacher';
-    if (isTeacher) return allStocks;
+    const isTeacherOrSuperAdmin =
+        window.currentUserProfile?.role === 'teacher' ||
+        (typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
+
+    if (isTeacherOrSuperAdmin) return allStocks;
     return allStocks.filter(item => (item.visibility || 'public') !== 'teachers_only');
 }
 
@@ -309,7 +312,6 @@ window.toggleStockVisibility = async function(itemId, newVisibility) {
             updated_at: new Date().toISOString()
         })
         .eq('id', itemId);
-
     if (error) {
         Swal.fire(
             'Database Column Needed',

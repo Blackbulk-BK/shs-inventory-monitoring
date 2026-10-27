@@ -1,11 +1,20 @@
 // ============================================================================
 // FILE: js/department.js
-// Schema-Safe Facility Directory, Segmented Inside/Outside Switch & Live Status
+// Building Organization (Academic, STEM, TVL) & Super Admin Master Access
 // ============================================================================
+
+const SUPER_ADMIN_EMAIL = 'angeleshenrich123@gmail.com';
+
+window.isSuperAdmin = function() {
+    const email = (window.currentUserProfile?.email || '').toLowerCase().trim();
+    return email === SUPER_ADMIN_EMAIL;
+};
 
 window.allDepartments = [];
 window.activeDepartmentId = null;
+window.activeBuildingFilter = 'ALL';
 window.activeDeptPermissions = {
+    isSuperAdmin: false,
     isCoordinator: false,
     canEditStocks: false,
     canUpdateStatus: false
@@ -16,10 +25,74 @@ let selectedCoCoordId = null;
 let selectedStudentToAddId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    injectBuildingControlsIntoDOM();
     upgradeAssignmentModalsToSearch();
     setupDepartmentForms();
     subscribeToRealtimeDepartments();
 });
+
+/**
+ * Injects:
+ * 1. Building Filter Tabs (All, Academic, STEM, TVL) in the Left Sidebar
+ * 2. Building Selector Dropdown (Academic Building, STEM Building, TVL Building) in the Create Modal
+ */
+function injectBuildingControlsIntoDOM() {
+    // 1. Add Building Filter Pills above the department list in the sidebar
+    const searchInputWrapper = document.getElementById('dept-search-input')?.parentElement;
+    if (searchInputWrapper && !document.getElementById('building-filter-tabs')) {
+        const filterTabsHTML = `
+            <div id="building-filter-tabs" class="grid grid-cols-4 gap-1 p-1 mb-3 rounded-xl bg-slate-100 border border-slate-200/80 text-[10px] font-bold">
+                <button type="button" onclick="setBuildingFilter('ALL')" data-bldg="ALL"
+                    class="bldg-tab-btn py-1.5 rounded-lg bg-slate-900 text-white shadow-2xs transition text-center">
+                    All
+                </button>
+                <button type="button" onclick="setBuildingFilter('Academic Building')" data-bldg="Academic Building"
+                    class="bldg-tab-btn py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">
+                    Academic
+                </button>
+                <button type="button" onclick="setBuildingFilter('STEM Building')" data-bldg="STEM Building"
+                    class="bldg-tab-btn py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">
+                    STEM
+                </button>
+                <button type="button" onclick="setBuildingFilter('TVL Building')" data-bldg="TVL Building"
+                    class="bldg-tab-btn py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center">
+                    TVL
+                </button>
+            </div>
+        `;
+        searchInputWrapper.insertAdjacentHTML('beforebegin', filterTabsHTML);
+    }
+
+    // 2. Add Building Selector inside the Create Facility Modal
+    const nameInputWrapper = document.getElementById('new-dept-name')?.parentElement;
+    if (nameInputWrapper && !document.getElementById('new-dept-building')) {
+        const buildingSelectHTML = `
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-slate-700 mb-1">Campus Building *</label>
+                <select id="new-dept-building" required
+                    class="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:border-slate-900 focus:outline-none">
+                    <option value="Academic Building">Academic Building</option>
+                    <option value="STEM Building">STEM Building</option>
+                    <option value="TVL Building">TVL Building</option>
+                </select>
+            </div>
+        `;
+        nameInputWrapper.insertAdjacentHTML('beforebegin', buildingSelectHTML);
+    }
+}
+
+window.setBuildingFilter = function(building) {
+    window.activeBuildingFilter = building;
+    document.querySelectorAll('.bldg-tab-btn').forEach(btn => {
+        const b = btn.getAttribute('data-bldg');
+        if (b === building) {
+            btn.className = "bldg-tab-btn py-1.5 rounded-lg bg-slate-900 text-white shadow-2xs transition text-center";
+        } else {
+            btn.className = "bldg-tab-btn py-1.5 rounded-lg text-slate-600 hover:text-slate-900 transition text-center";
+        }
+    });
+    filterDepartmentList();
+};
 
 function upgradeAssignmentModalsToSearch() {
     const newDeptSelect = document.getElementById('new-dept-cocoord');
@@ -83,7 +156,6 @@ window.searchTeacherForAssignment = async function(rawQuery, mode) {
         .from('profiles')
         .select('*')
         .eq('role', 'teacher')
-        .neq('id', window.currentUserProfile?.id)
         .or(`full_name.ilike.%${query}%,email.ilike.%${query}%`)
         .limit(6);
 
@@ -205,10 +277,24 @@ function getStatusBadgeMarkup(status) {
     return map[status] || map['Open'];
 }
 
-/**
- * Uses schema-safe (*) join so missing optional columns never break the query
- */
+function inferBuildingName(dept) {
+    if (dept.building) return dept.building;
+    const text = `${dept.dept_name || ''} ${dept.description || ''}`.toLowerCase();
+    if (text.includes('stem') || text.includes('science') || text.includes('chem') || text.includes('bio')) return 'STEM Building';
+    if (text.includes('academic') || text.includes('library') || text.includes('clinic')) return 'Academic Building';
+    return 'TVL Building';
+}
+
 window.loadDepartments = async function() {
+    injectBuildingControlsIntoDOM();
+
+    // Ensure Super Admin always sees the "+ New" department button regardless of role
+    const createDeptBtn = document.getElementById('btn-open-create-dept');
+    if (createDeptBtn && (window.currentUserProfile?.role === 'teacher' || window.isSuperAdmin())) {
+        createDeptBtn.classList.remove('hidden');
+        createDeptBtn.classList.add('inline-flex');
+    }
+
     const container = document.getElementById('department-list-container');
     const { data, error } = await window.supabaseClient
         .from('departments')
@@ -227,8 +313,12 @@ window.loadDepartments = async function() {
         return;
     }
 
-    window.allDepartments = data || [];
-    renderDepartmentList(window.allDepartments);
+    window.allDepartments = (data || []).map(d => ({
+        ...d,
+        building: inferBuildingName(d)
+    }));
+
+    filterDepartmentList();
 
     if (window.activeDepartmentId) {
         const stillExists = window.allDepartments.find(d => d.id === window.activeDepartmentId);
@@ -245,7 +335,7 @@ function renderDepartmentList(departments) {
     if (!container) return;
 
     if (!departments.length) {
-        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No facilities registered yet. Click "+ New" to add one.</div>`;
+        container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">No facilities found in this building. Click "+ New" to add one.</div>`;
         return;
     }
 
@@ -253,6 +343,7 @@ function renderDepartmentList(departments) {
         const isSelected = dept.id === window.activeDepartmentId;
         const badge = getStatusBadgeMarkup(dept.status);
         const anyCoordInside = Boolean(dept.coord1_inside || dept.coord2_inside);
+        const bldgName = inferBuildingName(dept);
 
         return `
             <div onclick="selectDepartment('${dept.id}')"
@@ -261,9 +352,12 @@ function renderDepartmentList(departments) {
                     ? 'bg-slate-950 text-white border-slate-900 shadow-md' 
                     : 'bg-white hover:border-slate-400 text-slate-900 border-slate-200/90'
                 }">
-                <div class="flex items-center justify-between gap-2">
-                    <h4 class="text-xs font-bold tracking-tight truncate">${dept.dept_name}</h4>
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                <!-- Building Tag -->
+                <div class="flex items-center justify-between gap-2 mb-1">
+                    <span class="text-[9px] font-mono-code font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        isSelected ? 'bg-blue-500/20 text-blue-300' : 'bg-slate-100 text-slate-500'
+                    }">${bldgName}</span>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
                         isSelected ? 'bg-white/10 text-white border border-white/15' : badge.classes
                     }">
                         <span class="${badge.dotClass}"></span>
@@ -271,6 +365,10 @@ function renderDepartmentList(departments) {
                     </span>
                 </div>
 
+                <!-- Facility Name -->
+                <h4 class="text-xs font-bold tracking-tight truncate">${dept.dept_name}</h4>
+
+                <!-- Coordinator + Inside/Outside Presence -->
                 <div class="mt-2.5 pt-2 border-t ${isSelected ? 'border-slate-800' : 'border-slate-100'} flex items-center justify-between gap-2 text-[11px]">
                     <span class="truncate ${isSelected ? 'text-slate-300' : 'text-slate-500'}">
                         ${dept.primary_coord?.full_name || 'Assigned Coordinator'}
@@ -292,11 +390,19 @@ function renderDepartmentList(departments) {
 }
 
 window.filterDepartmentList = function() {
-    const query = document.getElementById('dept-search-input').value.toLowerCase();
-    const filtered = window.allDepartments.filter(d =>
-        d.dept_name.toLowerCase().includes(query) ||
-        (d.description && d.description.toLowerCase().includes(query))
-    );
+    const query = (document.getElementById('dept-search-input')?.value || '').toLowerCase().trim();
+    const bldgFilter = window.activeBuildingFilter || 'ALL';
+
+    const filtered = window.allDepartments.filter(d => {
+        const bldg = inferBuildingName(d);
+        const matchesBldg = bldgFilter === 'ALL' || bldg === bldgFilter;
+        const matchesQuery =
+            d.dept_name.toLowerCase().includes(query) ||
+            bldg.toLowerCase().includes(query) ||
+            (d.description && d.description.toLowerCase().includes(query));
+        return matchesBldg && matchesQuery;
+    });
+
     renderDepartmentList(filtered);
 };
 
@@ -305,13 +411,16 @@ window.selectDepartment = async function(deptId) {
     const dept = window.allDepartments.find(d => d.id === deptId);
     if (!dept) return;
 
-    renderDepartmentList(window.allDepartments);
+    filterDepartmentList();
 
     document.getElementById('empty-workspace-state').classList.add('hidden');
     document.getElementById('active-workspace').classList.remove('hidden');
 
+    const bldgName = inferBuildingName(dept);
     document.getElementById('active-dept-name').textContent = dept.dept_name;
-    document.getElementById('active-dept-desc').textContent = dept.description || 'Luis Y. Ferrer Jr. Senior High School Facility';
+    document.getElementById('active-dept-desc').textContent = dept.description
+        ? `${bldgName} • ${dept.description}`
+        : `${bldgName} • Luis Y. Ferrer Jr. Senior High School`;
 
     const badgeStyle = getStatusBadgeMarkup(dept.status);
     const statusBadge = document.getElementById('active-dept-status-badge');
@@ -328,10 +437,11 @@ window.selectDepartment = async function(deptId) {
     });
 
     const myId = window.currentUserProfile?.id;
-    const isPrimaryCoord = dept.primary_coordinator_id === myId;
-    const isCoCoord = dept.co_coordinator_id === myId;
+    const superAdmin = window.isSuperAdmin();
+    const isPrimaryCoord = (dept.primary_coordinator_id === myId) || superAdmin;
+    const isCoCoord = (dept.co_coordinator_id === myId) || superAdmin;
 
-    // 1. Render Primary Coordinator Card (Works whether dashboard.html is new or old)
+    // 1. Render Primary Coordinator Card
     const pCoord = dept.primary_coord;
     const pCard = document.getElementById('primary-coord-card') || document.getElementById('primary-coord-name')?.closest('.p-3\\.5, .p-4, .flex');
     if (pCoord && pCard) {
@@ -363,7 +473,7 @@ window.selectDepartment = async function(deptId) {
 
             ${isPrimaryCoord ? `
                 <div class="pt-2 border-t border-slate-200/70 flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">My Presence</span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Room Presence</span>
                     <div class="inline-flex p-0.5 rounded-lg bg-slate-200/70 border border-slate-300/60">
                         <button type="button" onclick="toggleCoordinatorPresence('coord1', true)"
                             class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${
@@ -397,7 +507,7 @@ window.selectDepartment = async function(deptId) {
         if (coFooter) {
             coFooter.innerHTML = isCoCoord ? `
                 <div class="pt-2 border-t border-slate-200/70 flex items-center justify-between gap-2">
-                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">My Presence</span>
+                    <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Room Presence</span>
                     <div class="inline-flex p-0.5 rounded-lg bg-slate-200/70 border border-slate-300/60">
                         <button type="button" onclick="toggleCoordinatorPresence('coord2', true)"
                             class="px-2.5 py-1 rounded-md text-[10px] font-bold transition ${cInside ? 'bg-emerald-600 text-white' : 'text-slate-600'}">Inside</button>
@@ -430,6 +540,7 @@ window.selectDepartment = async function(deptId) {
     }
 
     await evaluateUserPermissionsForDept(dept);
+    injectDeleteDepartmentButton(dept.id);
 };
 
 window.toggleCoordinatorPresence = async function(slot, newState) {
@@ -442,11 +553,7 @@ window.toggleCoordinatorPresence = async function(slot, newState) {
         .eq('id', window.activeDepartmentId);
 
     if (error) {
-        Swal.fire(
-            'Database Column Needed',
-            'Please run the SQL snippet in Supabase SQL Editor to add coord1_inside and coord2_inside to the departments table.',
-            'info'
-        );
+        Swal.fire('Update Error', error.message, 'error');
         return;
     }
 
@@ -454,15 +561,19 @@ window.toggleCoordinatorPresence = async function(slot, newState) {
         department_id: window.activeDepartmentId,
         user_id: window.currentUserProfile.id,
         action_type: 'STATUS_CHANGED',
-        remarks: `Coordinator updated room presence to ${newState ? 'Inside Department' : 'Outside Department'}`
+        remarks: `Updated coordinator room presence to ${newState ? 'Inside Department' : 'Outside Department'}`
     }]);
 
     await loadDepartments();
 };
 
+/**
+ * Evaluates permissions — Grants angeleshenrich123@gmail.com UNRESTRICTED MASTER ACCESS
+ */
 async function evaluateUserPermissionsForDept(dept) {
     const userId = window.currentUserProfile?.id;
-    const isCoordinator = (dept.primary_coordinator_id === userId) || (dept.co_coordinator_id === userId);
+    const superAdmin = window.isSuperAdmin();
+    const isCoordinator = superAdmin || (dept.primary_coordinator_id === userId) || (dept.co_coordinator_id === userId);
 
     const { data: editors } = await window.supabaseClient
         .from('department_student_editors')
@@ -475,9 +586,10 @@ async function evaluateUserPermissionsForDept(dept) {
     const myStudentRecord = safeEditors.find(e => e.student_id === userId);
 
     window.activeDeptPermissions = {
+        isSuperAdmin: superAdmin,
         isCoordinator: isCoordinator,
-        canEditStocks: isCoordinator || (myStudentRecord ? myStudentRecord.can_edit_stocks : false),
-        canUpdateStatus: isCoordinator || (myStudentRecord ? myStudentRecord.can_update_status : false)
+        canEditStocks: superAdmin || isCoordinator || (myStudentRecord ? myStudentRecord.can_edit_stocks : false),
+        canUpdateStatus: superAdmin || isCoordinator || (myStudentRecord ? myStudentRecord.can_update_status : false)
     };
 
     const accessBadge = document.getElementById('user-access-level-badge');
@@ -486,7 +598,13 @@ async function evaluateUserPermissionsForDept(dept) {
     const btnManageEditors = document.getElementById('btn-manage-editors');
     const btnAddStock = document.getElementById('btn-add-stock');
 
-    if (isCoordinator) {
+    if (superAdmin) {
+        accessBadge.textContent = 'Super Admin (Unrestricted Access)';
+        accessBadge.className = 'px-2.5 py-0.5 rounded-md text-[10px] font-mono-code font-bold uppercase bg-indigo-500/15 text-indigo-600 border border-indigo-500/30';
+        btnAssignCoCoord.classList.remove('hidden');
+        btnManageEditors.classList.remove('hidden');
+        btnManageEditors.classList.add('inline-flex');
+    } else if (isCoordinator) {
         accessBadge.textContent = 'Coordinator (Full Admin)';
         accessBadge.className = 'px-2.5 py-0.5 rounded-md text-[10px] font-mono-code font-semibold uppercase bg-blue-500/10 text-blue-600 border border-blue-500/20';
         btnAssignCoCoord.classList.remove('hidden');
@@ -524,6 +642,67 @@ async function evaluateUserPermissionsForDept(dept) {
     }
 }
 
+function injectDeleteDepartmentButton(deptId) {
+    const dept = (window.allDepartments || []).find(d => d.id === deptId);
+    if (!dept) return;
+
+    const myId = window.currentUserProfile?.id;
+    const canDelete = window.isSuperAdmin() || (dept.primary_coordinator_id === myId) || (dept.co_coordinator_id === myId);
+
+    const existingBtn = document.getElementById('btn-delete-department');
+    if (existingBtn) existingBtn.remove();
+
+    if (!canDelete) return;
+
+    const badgeContainer = document.getElementById('user-access-level-badge')?.parentElement;
+    if (badgeContainer) {
+        const deleteBtnHTML = `
+            <button id="btn-delete-department" type="button" onclick="confirmDeleteDepartment('${dept.id}', '${dept.dept_name.replace(/'/g, "\\'")}')"
+                class="px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-600 hover:text-white transition flex items-center gap-1 no-print">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>Delete Facility</span>
+            </button>
+        `;
+        badgeContainer.insertAdjacentHTML('beforeend', deleteBtnHTML);
+        if (window.lucide) lucide.createIcons();
+    }
+}
+
+window.confirmDeleteDepartment = async function(deptId, deptName) {
+    const result = await Swal.fire({
+        title: `Delete "${deptName}"?`,
+        html: `<p class="text-xs text-slate-600">This will permanently remove <strong>${deptName}</strong> along with all of its inventory stocks, student editor permissions, and activity logs.</p>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#e11d48',
+        cancelButtonColor: '#64748b',
+        confirmButtonText: 'Yes, Delete Facility',
+        cancelButtonText: 'Cancel'
+    });
+
+    if (!result.isConfirmed) return;
+
+    Swal.fire({ title: 'Deleting Facility...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+    try {
+        await window.supabaseClient.from('activity_logs').delete().eq('department_id', deptId);
+        await window.supabaseClient.from('inventory_stocks').delete().eq('department_id', deptId);
+        await window.supabaseClient.from('department_student_editors').delete().eq('department_id', deptId);
+
+        const { error } = await window.supabaseClient.from('departments').delete().eq('id', deptId);
+        if (error) throw error;
+
+        window.activeDepartmentId = null;
+        document.getElementById('active-workspace')?.classList.add('hidden');
+        document.getElementById('empty-workspace-state')?.classList.remove('hidden');
+
+        await window.loadDepartments();
+        Swal.fire({ icon: 'success', title: 'Facility Deleted', timer: 1300, showConfirmButton: false });
+    } catch (err) {
+        Swal.fire('Delete Failed', err.message || 'Could not delete this facility.', 'error');
+    }
+};
+
 window.handleDepartmentStatusChange = async function(newStatus) {
     if (!window.activeDepartmentId) return;
 
@@ -548,6 +727,7 @@ window.handleDepartmentStatusChange = async function(newStatus) {
 };
 
 window.openCreateDeptModal = function() {
+    injectBuildingControlsIntoDOM();
     upgradeAssignmentModalsToSearch();
     selectedNewDeptCoCoordId = null;
     const pill = document.getElementById('selected-new-dept-cocoord-pill');
@@ -622,21 +802,33 @@ window.revokeStudentEditor = async function(recordId) {
 function setupDepartmentForms() {
     document.getElementById('form-create-dept').addEventListener('submit', async (e) => {
         e.preventDefault();
+        const building = document.getElementById('new-dept-building')?.value || 'TVL Building';
         const name = document.getElementById('new-dept-name').value.trim();
         const desc = document.getElementById('new-dept-desc').value.trim();
         const status = document.getElementById('new-dept-status').value;
 
-        const { data, error } = await window.supabaseClient
+        const payload = {
+            building: building,
+            dept_name: name,
+            description: desc ? `${building} • ${desc}` : building,
+            status: status,
+            primary_coordinator_id: window.currentUserProfile.id,
+            co_coordinator_id: selectedNewDeptCoCoordId || null
+        };
+
+        let { data, error } = await window.supabaseClient
             .from('departments')
-            .insert([{
-                dept_name: name,
-                description: desc,
-                status: status,
-                primary_coordinator_id: window.currentUserProfile.id,
-                co_coordinator_id: selectedNewDeptCoCoordId || null
-            }])
+            .insert([payload])
             .select()
             .single();
+
+        // Fallback if 'building' column hasn't been added via SQL yet
+        if (error && error.message.includes('building')) {
+            delete payload.building;
+            const retry = await window.supabaseClient.from('departments').insert([payload]).select().single();
+            data = retry.data;
+            error = retry.error;
+        }
 
         if (error) {
             Swal.fire('Error Creating Facility', error.message, 'error');
@@ -647,7 +839,7 @@ function setupDepartmentForms() {
         e.target.reset();
         window.activeDepartmentId = data.id;
         await loadDepartments();
-        Swal.fire({ icon: 'success', title: 'Facility Created', timer: 1200, showConfirmButton: false });
+        Swal.fire({ icon: 'success', title: `Added to ${building}`, timer: 1200, showConfirmButton: false });
     });
 
     document.getElementById('form-assign-cocoord').addEventListener('submit', async (e) => {
@@ -709,93 +901,3 @@ function subscribeToRealtimeDepartments() {
         })
         .subscribe();
 }
-
-// ============================================================================
-// ADD TO THE BOTTOM OF: js/department.js
-// Delete Department Option (Restricted to Primary & Co-Coordinator)
-// ============================================================================
-
-const originalSelectDepartment = window.selectDepartment;
-window.selectDepartment = async function(deptId) {
-    await originalSelectDepartment(deptId);
-    injectDeleteDepartmentButton(deptId);
-};
-
-function injectDeleteDepartmentButton(deptId) {
-    const dept = (window.allDepartments || []).find(d => d.id === deptId);
-    if (!dept) return;
-
-    const myId = window.currentUserProfile?.id;
-    const isCoordinator = (dept.primary_coordinator_id === myId) || (dept.co_coordinator_id === myId);
-
-    // Remove existing delete button if switching departments
-    const existingBtn = document.getElementById('btn-delete-department');
-    if (existingBtn) existingBtn.remove();
-
-    if (!isCoordinator) return;
-
-    const badgeContainer = document.getElementById('user-access-level-badge')?.parentElement;
-    if (badgeContainer) {
-        const deleteBtnHTML = `
-            <button id="btn-delete-department" type="button" onclick="confirmDeleteDepartment('${dept.id}', '${dept.dept_name.replace(/'/g, "\\'")}')"
-                class="px-2.5 py-1 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-rose-500/10 text-rose-600 border border-rose-500/20 hover:bg-rose-600 hover:text-white transition flex items-center gap-1 no-print">
-                <i data-lucide="trash-2" class="w-3 h-3"></i>
-                <span>Delete Facility</span>
-            </button>
-        `;
-        badgeContainer.insertAdjacentHTML('beforeend', deleteBtnHTML);
-        if (window.lucide) lucide.createIcons();
-    }
-}
-
-window.confirmDeleteDepartment = async function(deptId, deptName) {
-    const result = await Swal.fire({
-        title: `Delete "${deptName}"?`,
-        html: `<p class="text-xs text-slate-600">This will permanently remove <strong>${deptName}</strong> along with all of its inventory stocks, student editor permissions, and activity logs. This action cannot be undone.</p>`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#e11d48',
-        cancelButtonColor: '#64748b',
-        confirmButtonText: 'Yes, Delete Facility',
-        cancelButtonText: 'Cancel'
-    });
-
-    if (!result.isConfirmed) return;
-
-    Swal.fire({
-        title: 'Deleting Facility...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    try {
-        // 1. Clean up child records first so foreign key constraints never block deletion
-        await window.supabaseClient.from('activity_logs').delete().eq('department_id', deptId);
-        await window.supabaseClient.from('inventory_stocks').delete().eq('department_id', deptId);
-        await window.supabaseClient.from('department_student_editors').delete().eq('department_id', deptId);
-
-        // 2. Delete the department itself
-        const { error } = await window.supabaseClient
-            .from('departments')
-            .delete()
-            .eq('id', deptId);
-
-        if (error) throw error;
-
-        window.activeDepartmentId = null;
-        document.getElementById('active-workspace')?.classList.add('hidden');
-        document.getElementById('empty-workspace-state')?.classList.remove('hidden');
-
-        await window.loadDepartments();
-
-        Swal.fire({
-            icon: 'success',
-            title: 'Facility Deleted',
-            text: `${deptName} has been permanently removed.`,
-            timer: 1400,
-            showConfirmButton: false
-        });
-    } catch (err) {
-        Swal.fire('Delete Failed', err.message || 'Could not delete this facility.', 'error');
-    }
-};
