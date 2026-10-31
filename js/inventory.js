@@ -142,14 +142,6 @@ function getConditionBadge(status) {
  */
 
 
-function getVisibleStocksForCurrentUser(stocks) {
-    const safeStocks = stocks || [];
-    if (window.currentUserProfile?.role === 'teacher' || (typeof window.isSuperAdmin === 'function' && window.isSuperAdmin())) {
-        return safeStocks;
-    }
-    return safeStocks.filter(item => item.visibility !== 'teachers_only');
-}
-
 function updateInventoryKPICards(stocks) {
     const visibleStocks = getVisibleStocksForCurrentUser(stocks);
 

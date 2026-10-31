@@ -39,8 +39,8 @@ body {
 }
 
 /* Dark mode overrides for standard utility classes */
-html.dark header,
-html.dark footer {
+html.dark header {
+
     background-color: rgba(15, 23, 42, 0.9) !important;
     border-color: #1e293b !important;
 }
