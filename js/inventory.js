@@ -140,13 +140,14 @@ function getConditionBadge(status) {
  * - Teachers see ALL stocks ('public' + 'teachers_only')
  * - Students only see 'public' stocks
  */
-function getVisibleStocksForCurrentUser(allStocks) {
-    const isTeacherOrSuperAdmin =
-        window.currentUserProfile?.role === 'teacher' ||
-        (typeof window.isSuperAdmin === 'function' && window.isSuperAdmin());
 
-    if (isTeacherOrSuperAdmin) return allStocks;
-    return allStocks.filter(item => (item.visibility || 'public') !== 'teachers_only');
+
+function getVisibleStocksForCurrentUser(stocks) {
+    const safeStocks = stocks || [];
+    if (window.currentUserProfile?.role === 'teacher' || (typeof window.isSuperAdmin === 'function' && window.isSuperAdmin())) {
+        return safeStocks;
+    }
+    return safeStocks.filter(item => item.visibility !== 'teachers_only');
 }
 
 function updateInventoryKPICards(stocks) {
